@@ -69,8 +69,13 @@ async function salinGambar(r, btn) {
   try {
     const cv = await Tiket.gambar({ nama: r.nama, rm: r.rm, tgl: r.tgl, jam: r.jam || '', alamat: r.alamat, dokter: r.dokter, id: r.id, verifUrl: urlVerif(r) });
     const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
-    if (navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast('Gambar tiket disalin. Tempel (Ctrl+V) di chat WhatsApp.', 'ok'); }
-    else { unduh(namaBerkas(r).replace(/\.pdf$/, '.png'), blob); toast('Gambar tiket diunduh.', 'ok'); }
+    const teks = pesanBukti(r), file = new File([blob], namaBerkas(r).replace(/\.pdf$/, '.png'), { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) { try { await navigator.share({ files: [file], text: teks }); btnBusy(btn, false); return; } catch (e) { if (e && e.name === 'AbortError') { btnBusy(btn, false); return; } } }
+    if (navigator.clipboard && window.ClipboardItem) {
+      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob, 'text/plain': new Blob([teks], { type: 'text/plain' }) })]); toast('Gambar + pesan disalin. Tempel (Ctrl+V) di chat WhatsApp; bila hanya gambar yang muncul, tempel lagi untuk teksnya.', 'ok'); }
+      catch (e) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); copyText(teks); toast('Gambar disalin. Pesan menyusul disalin: tempel gambar dulu, lalu salin pesan lewat tombol "Salin pesan".', 'ok'); }
+    }
+    else { unduh(file.name, blob); copyText(teks); toast('Gambar tiket diunduh dan pesan disalin.', 'ok'); }
   } catch (e) { toast('Gambar belum dapat disalin: ' + (e && e.message || e), 'err'); }
   btnBusy(btn, false);
 }
@@ -82,7 +87,7 @@ function bukaDetail(r, rerender) {
   const m = modal({ title: nm, size: 'lg', body: '<div class="fg">' + dl.map(x => '<div><div class="lbl">' + x[0] + '</div><div>' + x[1] + '</div></div>').join('') + '</div>', foot: false });
   const bar = document.createElement('div'); bar.className = 'mf';
   const add = (id, label, ico, cls) => { const b = document.createElement('button'); b.className = 'btn ' + (cls || ''); b.dataset.a = id; b.innerHTML = ic(ico, 16) + ' ' + label; bar.appendChild(b); };
-  if (r.status !== 'Batal') { add('share', 'Kirim bukti', 'wa', 'pri'); add('gambar', 'Salin gambar', 'copy'); add('bukti', 'Unduh PDF', 'file'); }
+  if (r.status !== 'Batal') { add('share', 'Kirim bukti', 'wa', 'pri'); add('gambar', 'Salin gambar + pesan', 'copy'); add('bukti', 'Unduh PDF', 'file'); }
   add('edit', 'Ubah data', 'edit');
   if (['Terdaftar', 'Menunggu', 'Terkonfirmasi'].includes(r.status)) add('jadwal', 'Jadwal ulang', 'calendar');
   st.forEach(s => add('st:' + s, s === 'Batal' ? 'Batalkan' : s === 'Menunggu' && r.status === 'Batal' ? 'Aktifkan kembali' : s === 'Menunggu' ? 'Kembali ke menunggu' : s === 'Hadir' ? 'Check-in' : s === 'Terkonfirmasi' ? 'Konfirmasi' : s, s === 'Batal' ? 'ban' : 'check', s === 'Batal' ? 'dng' : (s === 'Terkonfirmasi' || s === 'Hadir' || s === 'Selesai') ? 'pri' : ''));
@@ -270,7 +275,7 @@ page('/daftar', { title: 'Pendaftaran Baru', async render(el, p, q, ctx) {
     const j = await tulis('daftar.save', d, { reqId: S.reqId }); S.busy = false; btnBusy(b, false);
     if (!j) { if (S.slot) muatSlot(); return; }
     invalidateCache(); const bk = j.data.booking; S.hasil = bk;
-    $('#rail').innerHTML = '<div class="ticket"><div class="k">Pendaftaran tersimpan ' + ic('checkc', 14) + '</div><div class="tcode">' + esc(bk.id) + '</div><dl><dt>Pasien</dt><dd>' + esc(bk.nama) + '</dd><dt>No. RM</dt><dd>' + esc(bk.rm) + '</dd><dt>Dokter</dt><dd>' + esc(bk.dokter) + '</dd><dt>Jadwal</dt><dd>' + esc(tglIndo(bk.tgl, true) + ' · ' + jamTxt(bk) + ' WIB') + '</dd>' + (bk.sasa === 'Sasa' ? '<dt>Kartu</dt><dd style="color:var(--gold-h)">SASA baru ★</dd>' : '') + '</dl></div><div class="col" style="margin-top:12px"><button class="btn gold blk" id="r-wa" style="min-height:48px">' + ic('wa', 18) + (hp(bk.hp) ? ' Kirim tautan ke WhatsApp ' + esc(bk.hp) : ' Kirim tautan bukti (pilih kontak)') + '</button><button class="btn blk" id="r-pdf">' + ic('file', 16) + ' Unduh PDF</button>' + (hp(bk.hp) ? '<button class="btn blk" id="r-sh">' + ic('wa', 16) + ' Bagikan ke kontak lain</button>' : '') + '<button class="btn blk" id="r-img">' + ic('copy', 16) + ' Salin gambar tiket</button>' + '<button class="btn blk" id="r-cp">' + ic('copy', 16) + ' Salin pesan</button><button class="btn blk ghost" id="r-new">' + ic('plus', 16) + ' Pendaftaran berikutnya</button></div>';
+    $('#rail').innerHTML = '<div class="ticket"><div class="k">Pendaftaran tersimpan ' + ic('checkc', 14) + '</div><div class="tcode">' + esc(bk.id) + '</div><dl><dt>Pasien</dt><dd>' + esc(bk.nama) + '</dd><dt>No. RM</dt><dd>' + esc(bk.rm) + '</dd><dt>Dokter</dt><dd>' + esc(bk.dokter) + '</dd><dt>Jadwal</dt><dd>' + esc(tglIndo(bk.tgl, true) + ' · ' + jamTxt(bk) + ' WIB') + '</dd>' + (bk.sasa === 'Sasa' ? '<dt>Kartu</dt><dd style="color:var(--gold-h)">SASA baru ★</dd>' : '') + '</dl></div><div class="col" style="margin-top:12px"><button class="btn gold blk" id="r-wa" style="min-height:48px">' + ic('wa', 18) + (hp(bk.hp) ? ' Kirim tautan ke WhatsApp ' + esc(bk.hp) : ' Kirim tautan bukti (pilih kontak)') + '</button><button class="btn blk" id="r-pdf">' + ic('file', 16) + ' Unduh PDF</button>' + (hp(bk.hp) ? '<button class="btn blk" id="r-sh">' + ic('wa', 16) + ' Bagikan ke kontak lain</button>' : '') + '<button class="btn blk" id="r-img">' + ic('copy', 16) + ' Salin gambar + pesan</button>' + '<button class="btn blk" id="r-cp">' + ic('copy', 16) + ' Salin pesan</button><button class="btn blk ghost" id="r-new">' + ic('plus', 16) + ' Pendaftaran berikutnya</button></div>';
     $('#r-wa').onclick = ev => bagikanBukti(bk, ev.currentTarget); $('#r-pdf').onclick = ev => cetakBukti(bk, ev.currentTarget); $('#r-cp').onclick = () => copyText(pesanBukti(bk)); $('#r-img').onclick = ev => salinGambar(bk, ev.currentTarget); if ($('#r-sh')) $('#r-sh').onclick = ev => bagikanBukti(bk, ev.currentTarget, true); $('#r-new').onclick = () => { kosongkan(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
     if (window.innerWidth < 1000) $('#rail').scrollIntoView({ behavior: 'smooth' });
     S.slots = []; muatSlot();
