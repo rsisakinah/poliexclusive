@@ -117,6 +117,33 @@ Formulir pendaftaran: pilih dokter lewat kolom yang bisa diketik, isi data pasie
 4. No. WhatsApp dan Sasa/Lama boleh dikosongkan saat mendaftar; isi lewat **Ubah data** ketika pasien datang.
 5. Tombol **Kirim ke WhatsApp [nomor]** membuka chat langsung ke nomor pasien dengan pesan terisi; PDF terunduh, lalu lampirkan lewat 📎 → Dokumen. Tanpa nomor, tombol memakai menu bagikan HP (pilih kontak).
 
+## UPDATE — Bukti dikirim sebagai tautan + laporan rentang tanggal & per dokter
+
+**Yang berubah**
+- Tombol "Kirim tautan ke WhatsApp" langsung membuka chat nomor pasien dengan pesan berisi tautan `https://rsisakinah.github.io/poliexclusive/#/v/KODE`. Tidak ada PDF yang diunduh.
+- Pasien yang membuka tautan melihat tiket (boarding pass) dan bisa menyimpan gambar atau PDF-nya.
+- Tombol baru **Salin gambar tiket** (di komputer, lalu Ctrl+V di WhatsApp Web) bila ingin melampirkan gambar.
+- Laporan & Grafik: isian **Dari tanggal / Sampai tanggal** dan filter **Dokter**; Excel/PDF mengikuti filter.
+- Pesan bawaan memuat `{link}`. Bila pesan yang sudah Anda simpan di Pengaturan belum memuat `{link}`, tautan otomatis ditambahkan di akhir.
+
+**Cara memasang**
+1. Ganti `Kode.gs`, `Pendaftaran.gs`, `Dokumen.gs` di Apps Script → Simpan → Deploy → Kelola deployment → Versi baru.
+2. Salin isi folder frontend ke repo **tanpa menimpa `js/config.js`**, lalu `git add . && git commit -m "update" && git push`, dan Ctrl+F5.
+3. Pengaturan → "URL aplikasi" isi `https://rsisakinah.github.io/poliexclusive` bila kosong.
+
+Catatan: tautan hanya menampilkan data bila kodenya tepat (10 karakter acak), seperti tiket boarding pass.
+
+## UPDATE — Salin gambar + pesan, Data Pasien per rentang tanggal
+
+- **Salin gambar + pesan**: gambar tiket dan teks pesan disalin bersamaan. Di HP (Android/iPhone) tombol membuka menu bagikan berisi gambar + pesan. Di komputer, tempel (Ctrl+V) di WhatsApp Web; bila WhatsApp hanya menempel gambar, tempel sekali lagi untuk teksnya.
+- **Data Pasien**: filter *Dari tanggal / Sampai tanggal* menggantikan filter bulan. Tampilan awal = pasien hari ini. Tombol "Hari ini" dan "Bulan ini" tersedia.
+- Saat **Fitur lanjutan nonaktif**, filter dan ringkasan status disembunyikan seluruhnya.
+- Hanya frontend yang berubah (tidak perlu mengganti file .gs). Salin ZIP tanpa menimpa `js/config.js`, push, Ctrl+F5.
+
+## UPDATE — Pencarian dokter bisa diketik
+
+Kolom Dokter di Pendaftaran Baru kini kotak pencarian: ketik sebagian nama atau spesialis, pilih dari daftar (atau tekan Enter untuk pilihan teratas). Hanya frontend; salin ZIP tanpa menimpa `js/config.js`, push, Ctrl+F5.
+
 ## Cara pakai singkat
 
 - **Pendaftaran Baru**: pilih Appointment/Onsite → tanggal → jam kunjungan (bebas, format 24 jam) & dokter → pasien terdaftar *atau* pasien baru (otomatis kartu **SASA**) → penjamin → **F4** simpan. Onsite langsung *Hadir* + nomor antrean.

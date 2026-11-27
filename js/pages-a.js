@@ -244,7 +244,20 @@ page('/daftar', { title: 'Pendaftaran Baru', async render(el, p, q, ctx) {
   const renderSlot = () => {
     const g = $('#sg'); if (!S.slots.length) { g.innerHTML = '<div class="muted" style="padding:10px 0">Belum ada dokter aktif. Tambahkan dokter di menu Dokter.</div>'; return; }
     const urut = S.slots.slice().sort((a, b) => kunciNama(a.dokter).localeCompare(kunciNama(b.dokter)));
-    g.innerHTML = '<div class="f"><label for="fd">Dokter <i>*</i> <span class="muted">(ketik nama untuk mencari)</span></label><select class="in" id="fd"><option value="">Pilih dokter…</option>' + urut.map(x => '<option value="' + esc(x.dokterId) + '"' + (S.slot === x.dokterId ? ' selected' : '') + '>' + esc(x.dokter + (x.spesialis ? ' — ' + x.spesialis : '')) + '</option>').join('') + '</select></div><div id="fdi" style="margin-top:8px;min-height:24px"></div>';
+    const sel = S.slots.find(v => v.dokterId === S.slot);
+    g.innerHTML = '<div class="f" style="position:relative"><label for="fdq">Dokter <i>*</i> <span class="muted">(ketik nama untuk mencari)</span></label><input class="in" id="fdq" type="text" autocomplete="off" placeholder="Ketik nama dokter…" value="' + esc(sel ? sel.dokter : '') + '"><select id="fd" tabindex="-1" aria-hidden="true" style="display:none"><option value="">Pilih dokter…</option>' + urut.map(x => '<option value="' + esc(x.dokterId) + '"' + (S.slot === x.dokterId ? ' selected' : '') + '>' + esc(x.dokter) + '</option>').join('') + '</select><div class="sugg" id="fdl" style="display:none"></div></div><div id="fdi" style="margin-top:8px;min-height:24px"></div>';
+    const q = $('#fdq'), l = $('#fdl'), norm = t => String(t || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const pilih = id => { const fd = $('#fd'); fd.value = id || ''; const x = S.slots.find(v => v.dokterId === id); q.value = x ? x.dokter : ''; l.style.display = 'none'; fd.dispatchEvent(new Event('change', { bubbles: true })); };
+    const tampil = () => {
+      const k = norm(q.value).split(' ').filter(Boolean), cocok = urut.filter(x => { const h = norm(x.dokter + ' ' + (x.spesialis || '')); return k.every(t => h.indexOf(t) >= 0); });
+      l.innerHTML = cocok.length ? cocok.map(x => '<button type="button" data-id="' + esc(x.dokterId) + '">' + esc(x.dokter) + (x.spesialis ? ' <span class="muted sm">— ' + esc(x.spesialis) + '</span>' : '') + '</button>').join('') : '<div class="muted" style="padding:10px 14px">Dokter tidak ditemukan.</div>';
+      l.style.display = 'block';
+    };
+    q.addEventListener('focus', () => { q.select(); tampil(); });
+    q.addEventListener('input', () => { if (S.slot) { $('#fd').value = ''; S.slot = null; infoDokter(); ringkas(); } tampil(); });
+    q.addEventListener('keydown', e => { if (e.key === 'Escape') l.style.display = 'none'; else if (e.key === 'Enter') { const f = l.querySelector('button'); if (f) { e.preventDefault(); pilih(f.dataset.id); } } });
+    q.addEventListener('blur', () => setTimeout(() => { l.style.display = 'none'; const x = S.slots.find(v => v.dokterId === S.slot); if (x) q.value = x.dokter; }, 150));
+    l.addEventListener('mousedown', e => { const b = e.target.closest('button[data-id]'); if (b) { e.preventDefault(); pilih(b.dataset.id); q.blur(); } });
     infoDokter();
   };
   const ringkas = () => {
