@@ -2,9 +2,22 @@
 'use strict';
 async function refreshBoot() { const j = await api('bootstrap'); if (j.success) { App.boot = j.data; LS.set('boot:' + App.user.username, j.data); } return j.success; }
 
-page('/laporan', { title: 'Laporan & Grafik', async render(el, p, q, ctx) {
+page('/laporan', { title: 'Laporan & Grafik', async render(el, p, q, ctx) { return laporanView(el, ctx, {}); } });
+
+// Halaman publik hanya-baca untuk atasan (tautan rahasia; hanya angka agregat)
+page('/lap/:kode', { pub: true, title: 'Laporan & Grafik', async render(el, p) {
+  document.title = 'Laporan & Grafik · ' + CFG.NAMA; el.innerHTML = '<div style="max-width:1100px;margin:0 auto;padding:16px">' + skel(5, 24) + '</div>';
+  const j = await api('laporan.publik', { kode: p.kode, tahun: todayStr().slice(0, 4) });
+  if (!j.success) { el.innerHTML = '<div class="ver"><div class="card pad center"><div style="color:var(--err)">' + ic('ban', 48) + '</div><h2 style="margin-top:8px">Tautan tidak berlaku</h2><p class="muted">' + esc(j.message || 'Tautan laporan tidak ditemukan atau sudah dicabut.') + '</p></div></div>'; return; }
+  const dokter = (j.data.dokter || []).map(d => ({ ID_Dokter: d.id, Nama_Dokter: d.nama }));
+  if (!App.boot) App.boot = { config: { nama: j.data.institusi || CFG.NAMA, alamat: '', telp: '' }, dokter: dokter, referensi: {} };
+  el.innerHTML = '<div id="lapw" style="max-width:1100px;margin:0 auto;padding:16px"></div>';
+  return laporanView($('#lapw'), { alive: () => true }, { kode: p.kode, dokter: dokter, nama: j.data.institusi });
+} });
+
+async function laporanView(el, ctx, P) {
   const thn = +todayStr().slice(0, 4), S = { tahun: String(thn), bulan: 0, dari: '', sampai: '', dok: '', D: null };
-  const dokOpt = ((App.boot && App.boot.dokter) || []).map(d => '<option value="' + esc(d.ID_Dokter) + '">' + esc(d.Nama_Dokter) + '</option>').join('');
+  const dokOpt = (P.dokter || (App.boot && App.boot.dokter) || []).map(d => '<option value="' + esc(d.ID_Dokter) + '">' + esc(d.Nama_Dokter) + '</option>').join('');
   el.innerHTML = '<div class="ph"><div><h1>Laporan & Grafik</h1><div class="sub">Jumlah pasien per bulan, per dokter, dan per penjamin.</div></div><div class="act"><button class="btn" id="lx">' + ic('download', 16) + ' Excel</button><button class="btn" id="lp">' + ic('file', 16) + ' PDF</button></div></div>' +
     '<div class="card pad row wrap" style="margin-bottom:16px;padding:12px 16px"><div class="f" style="min-width:120px"><label>Tahun</label><select class="in" id="lt">' + opt([thn, thn - 1, thn - 2, thn - 3].map(String), S.tahun) + '</select></div><div class="f" style="min-width:190px"><label>Periode dokter & penjamin</label><select class="in" id="lb">' + opt([{ v: 0, l: 'Seluruh tahun' }].concat(BULAN.map((b, i) => ({ v: i + 1, l: b }))), 0) + '</select></div><div class="f" style="min-width:150px"><label>Dari tanggal</label><input class="in" type="date" id="ld"></div><div class="f" style="min-width:150px"><label>Sampai tanggal</label><input class="in" type="date" id="ls"></div><div class="f" style="min-width:200px"><label>Dokter</label><select class="in" id="lk"><option value="">Semua dokter</option>' + dokOpt + '</select></div><button class="btn ghost" id="lrs" style="align-self:flex-end">Reset</button></div><div id="lr">' + skel(6, 24) + '</div>';
   const spekBulan = D => ({ title: 'Pasien per bulan', labels: D.perBulan.map(b => b.nama.slice(0, 3)), stacked: true, series: [{ name: 'Sasa (pasien baru)', color: '#C5A059', values: D.perBulan.map(b => b.sasa) }, { name: 'Lama', color: '#0B192C', values: D.perBulan.map(b => b.lama) }, { name: 'Belum diisi', color: '#9AA5B1', values: D.perBulan.map(b => b.total - b.sasa - b.lama) }] });
@@ -14,7 +27,7 @@ page('/laporan', { title: 'Laporan & Grafik', async render(el, p, q, ctx) {
       '<div class="card mt"><div class="hd"><h3>Jumlah pasien per bulan — ' + esc(D.tahun) + '</h3><span class="chip">' + r.totalTahun + ' kunjungan setahun</span></div><div class="bd">' + Charts.bars(spekBulan(D)) + '<div style="margin-top:8px">' + Charts.legend([{ name: 'Sasa (pasien baru)', color: '#C5A059' }, { name: 'Lama', color: '#0B192C' }]) + '</div></div></div>' +
       '<div class="grid g12 mt"><div class="card"><div class="hd"><h3>Pasien per dokter</h3><span class="chip">' + esc(D.periodeLabel) + '</span></div><div class="bd">' + (dokItems.length ? Charts.hbars({ title: 'Pasien per dokter', items: dokItems }) : '<div class="empty">Belum ada data.</div>') + '</div>' + (D.perDokter.length ? '<div class="tw"><table class="t"><thead><tr><th>Dokter</th><th class="num">Sasa</th><th class="num">Lama</th><th class="num">Total</th></tr></thead><tbody>' + D.perDokter.map(d => '<tr><td>' + esc(d.dokter) + '</td><td class="num">' + d.sasa + '</td><td class="num">' + d.lama + '</td><td class="num b">' + d.total + '</td></tr>').join('') + '</tbody></table></div>' : '') + '</div>' +
       '<div class="card"><div class="hd"><h3>Per penjamin</h3></div><div class="bd">' + Charts.donut({ title: 'Per penjamin', items: jenItems, unit: 'kunjungan' }) + '<div style="margin-top:14px" class="col">' + jenItems.map(x => '<div class="row" style="justify-content:space-between"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + x.color + ';margin-right:8px"></i>' + esc(x.label) + '</span><b>' + x.value + ' <span class="muted" style="font-weight:500">(' + (r.total ? Math.round(x.value / r.total * 100) : 0) + '%)</span></b></div>').join('') + '</div></div></div></div>'; };
-  const load = async () => { $('#lr').innerHTML = skel(5, 24); const d = { tahun: S.tahun, bulan: S.bulan, dari: S.dari, sampai: S.sampai, dokterId: S.dok }; await swr('lap:' + [S.tahun, S.bulan, S.dari, S.sampai, S.dok].join(':'), 'laporan', d, x => { if (ctx.alive()) { S.D = x; render(); } }, { guard: ctx.alive }); };
+  const load = async () => { $('#lr').innerHTML = skel(5, 24); const d = { tahun: S.tahun, bulan: S.bulan, dari: S.dari, sampai: S.sampai, dokterId: S.dok }; if (P.kode) d.kode = P.kode; await swr('lap:' + (P.kode ? 'p:' : '') + [S.tahun, S.bulan, S.dari, S.sampai, S.dok].join(':'), P.kode ? 'laporan.publik' : 'laporan', d, x => { if (ctx.alive()) { S.D = x; render(); } }, { guard: ctx.alive, onError: P.kode ? (j => { $('#lr').innerHTML = '<div class="card pad"><div class="empty"><p><b>Tidak dapat memuat laporan</b></p><p>' + esc(j.message || '') + '</p></div></div>'; }) : null }); };
   $('#lt').onchange = e => { S.tahun = e.target.value; load(); }; $('#lb').onchange = e => { S.bulan = +e.target.value; load(); };
   const rentang = () => { S.dari = $('#ld').value; S.sampai = $('#ls').value; if (S.dari && S.sampai && S.dari > S.sampai) { toast('Tanggal "dari" tidak boleh setelah "sampai".', 'err'); return; } $('#lb').disabled = !!(S.dari || S.sampai); load(); };
   $('#ld').onchange = rentang; $('#ls').onchange = rentang; $('#lk').onchange = e => { S.dok = e.target.value; load(); };
@@ -34,8 +47,25 @@ page('/laporan', { title: 'Laporan & Grafik', async render(el, p, q, ctx) {
     doc.h2('Pasien per penjamin — ' + D.periodeLabel); doc.need(130); const y0 = doc.y, items = D.perJenis.map((d, i) => ({ label: d.jenis, value: d.total, color: PALET[i % PALET.length] }));
     doc.donut({ items, unit: 'kunjungan' }, doc.m + 70, y0 + 62, 56, 34); items.forEach((x, i) => { doc.rect(doc.m + 160, y0 + 14 + i * 18, 9, 9, { fill: x.color }); doc.text(x.label + ' — ' + x.value + ' (' + (r.total ? Math.round(x.value / r.total * 100) : 0) + '%)', doc.m + 176, y0 + 13 + i * 18, { size: 9 }); }); doc.y = y0 + Math.max(130, items.length * 18 + 30);
     unduh('Laporan_' + D.tahun + (D.bulan ? '_' + pad2(D.bulan) : '') + '.pdf', doc.blob()); toast('Laporan PDF diunduh.', 'ok'); };
+  if (isAdmin() && !P.kode) {
+    const b = document.createElement('button'); b.className = 'btn'; b.innerHTML = ic('wa', 16) + ' Tautan untuk atasan'; $('.ph .act').prepend(b);
+    b.onclick = async () => {
+      const link = k => String((App.boot.config && App.boot.config.appUrl) || APP_URL_BAWAAN).replace(/\/+$/, '') + '/#/lap/' + k;
+      const m = modal({ title: 'Tautan laporan untuk atasan', body: '<div id="tl" class="col"><div class="muted">Memuat…</div></div>', foot: false });
+      const gambar = d => { $('#tl', m.el).innerHTML = d.aktif
+        ? '<div class="hint">Siapa pun yang memegang tautan ini dapat melihat laporan (hanya angka, tanpa data pasien) tanpa login. Cabut bila tautan tersebar.</div><input class="in" id="tl-u" readonly value="' + esc(link(d.kode)) + '"><div class="row wrap"><button class="btn pri" id="tl-s">' + ic('copy', 16) + ' Salin tautan</button><button class="btn" id="tl-w">' + ic('wa', 16) + ' Kirim lewat WhatsApp</button><button class="btn" id="tl-g">Ganti kode</button><button class="btn dng" id="tl-c">Cabut</button></div>'
+        : '<div class="hint">Belum ada tautan aktif. Buat tautan rahasia agar atasan dapat melihat laporan tanpa login.</div><button class="btn pri" id="tl-b">Buat tautan</button>'; };
+      const kirim = async aksi => { const j = await tulis('laporan.tautan', { aksi }); if (j) gambar(j.data); };
+      m.el.addEventListener('click', async e => { const t = e.target.closest('button'); if (!t) return; const u = $('#tl-u', m.el);
+        if (t.id === 'tl-s') copyText(u.value); else if (t.id === 'tl-w') window.open('https://wa.me/?text=' + encodeURIComponent('Laporan kunjungan Poli Exclusive RSI Sakinah:\n' + u.value), '_blank');
+        else if (t.id === 'tl-b') kirim('buat');
+        else if (t.id === 'tl-g') { if (await konfirmasi('Ganti kode?', 'Tautan lama langsung tidak berlaku. Atasan perlu menerima tautan baru.', { ok: 'Ganti kode' })) kirim('buat'); }
+        else if (t.id === 'tl-c') { if (await konfirmasi('Cabut tautan?', 'Tautan tidak dapat dibuka lagi sampai Anda membuat yang baru.', { ok: 'Cabut', bahaya: true })) kirim('cabut'); } });
+      const j = await tulis('laporan.tautan', { aksi: 'lihat' }, { silent: true }); if (j) gambar(j.data); else $('#tl', m.el).innerHTML = '<div class="muted">Gagal memuat status tautan.</div>';
+    };
+  }
   load();
-} });
+}
 
 // ---------- DOKTER & KUOTA (Admin) ----------
 const HARI_PRAKTIK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];

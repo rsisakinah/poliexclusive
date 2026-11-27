@@ -144,6 +144,18 @@ Catatan: tautan hanya menampilkan data bila kodenya tepat (10 karakter acak), se
 
 Kolom Dokter di Pendaftaran Baru kini kotak pencarian: ketik sebagian nama atau spesialis, pilih dari daftar (atau tekan Enter untuk pilihan teratas). Hanya frontend; salin ZIP tanpa menimpa `js/config.js`, push, Ctrl+F5.
 
+## UPDATE — Laporan publik untuk atasan (tautan rahasia) & urutan Data Pasien
+
+**Laporan untuk atasan**
+1. Ganti `Admin.gs` di Apps Script → Simpan → Deploy → Kelola deployment → Versi baru.
+2. Salin ZIP frontend ke repo **tanpa menimpa `js/config.js`**, push, Ctrl+F5.
+3. Masuk sebagai Admin → Laporan & Grafik → **Tautan untuk atasan** → Buat tautan → Salin / Kirim lewat WhatsApp.
+- Atasan membuka tautan `…/#/lap/KODE` tanpa login: grafik, filter tahun/bulan/rentang tanggal/dokter, serta unduh Excel/PDF sama seperti menu Laporan.
+- Hanya angka agregat yang dikirim; tidak ada nama atau data pasien.
+- Tautan berlaku tanpa batas waktu sampai Anda menekan **Cabut** atau **Ganti kode** (tautan lama langsung mati).
+
+**Data Pasien**: urutan kini dari tanggal terlama ke terbaru, lalu jam paling awal (Pagi sebelum Sore). Klik judul kolom **Tanggal** untuk membalik urutan.
+
 ## Cara pakai singkat
 
 - **Pendaftaran Baru**: pilih Appointment/Onsite → tanggal → jam kunjungan (bebas, format 24 jam) & dokter → pasien terdaftar *atau* pasien baru (otomatis kartu **SASA**) → penjamin → **F4** simpan. Onsite langsung *Hadir* + nomor antrean.
